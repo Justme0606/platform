@@ -46,10 +46,10 @@ patches: [
 ]
 dev-repo: "git+https://github.com/ocaml/ocamlfind.git"
 url {
-  src: "http://download.camlcity.org/download/findlib-1.9.5.tar.gz"
+  src: "https://github.com/Justme0606/findlib-mirror/releases/download/findlib-1.9.5/findlib-1.9.5.tar.gz"
   checksum: [
-    "md5=8b893525ce36cb3d4d4952483bcc7cf4"
-    "sha512=03514c618a16b02889db997c6c4789b3436b3ad7d974348d2c6dea53eb78898ab285ce5f10297c074bab4fd2c82931a8b7c5c113b994447a44abb30fca74c715"
+    "md5=294fcddd026ab21f5d9c4843491b13f0"
+    "sha512=b8aef32d27e82bf88a10d7f8ceb686ac6b8085d6a91f64f6cec9a11825822488ef764c1c1a04f53388bcac7490de68aa03d1214c0744a9bcd7b208ee1336a3b2"
   ]
 }
 extra-files: [
