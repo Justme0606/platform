@@ -236,7 +236,8 @@ cat <<-'EOH' | sed -e "s/PRODUCTNAME/Coq-Platform${COQ_PLATFORM_PACKAGE_PICK_POS
 	    fi
 	  else
 	    echo "Using coqc from '/Applications/PRODUCTNAME.app/Contents/Resources/bin'"
-	    export PATH='/Applications/PRODUCTNAME.app/Contents/Resources/bin':"$PATH"
+	    #export PATH='/Applications/PRODUCTNAME.app/Contents/Resources/bin':"$PATH"
+		eval $(/Applications/PRODUCTNAME.app/Contents/Resources/bin/coq-env.sh)
 	  fi
 	fi
 
