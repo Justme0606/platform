@@ -188,10 +188,6 @@ PATCH_CMDS[coq-vst~8.12]='/^Require Import VST.progs.reverse.$/ {print "Require 
 
 ##### Hacks for files #####
 
-# Patch a file using AWK
-# $1 = file name to patch
-# $2 = awk patch command
-
 function patch_file() {
   if [ -n "$2" ]
   then
@@ -310,11 +306,11 @@ cat <<-'EOH' | sed -e 's/$/\r/' -e "s/PRODUCTNAME/Coq-Platform${COQ_PLATFORM_PAC
 	            EXIT /B 1
 	        ) ELSE (
 	            ECHO "Using coqc from C:\bin\PRODUCTNAME\bin"
-	            SET "PATH=C:\bin\PRODUCTNAME\bin;%PATH%"
+	            SET "PATH=C:\bin\PRODUCTNAME\bin;C:\bin\PRODUCTNAME\lib\stublibs;%PATH%"
 	        )
 	    ) ELSE (
 	        ECHO "Using coqc from C:\PRODUCTNAME\bin"
-	        SET "PATH=C:\PRODUCTNAME\bin;%PATH%"
+	        SET "PATH=C:\PRODUCTNAME\bin;C:\PRODUCTNAME\lib\stublibs;%PATH%"
 	    )
 	)
 	
