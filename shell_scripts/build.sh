@@ -34,50 +34,61 @@ opam config set jobs $COQ_PLATFORM_JOBS
 # One can rise it as root on MacOS, but only for a root shell, not for the current shell
 ulimit -S -s 65520
 
-## --- Windows-only: Flocq workaround (remake DB clean + disable native compiler), with auto version detection
+## --- Windows-only: Flocq/Flocq3 workaround (remake DB clean + disable native compiler), auto version detection
 if [[ "$OSTYPE" == cygwin* ]]; then
-  echo "[Windows] Preparing Flocq/Flocq3 workaround (auto-detected versions)"
+  echo "[Windows] Preparing Flocq/Flocq3 workaround (auto-detected versions, win32+cygwin stanzas)"
 
-  # Helper to create an overlay for a given opam package if it is available
   apply_overlay_for_pkg () {
     local pkg="$1"
-    # Ask opam which version would be installed given current repos & constraints
     local ver
+    # Which version would opam install for this pkg (given current repos/constraints)?
     ver="$(opam show -f version "$pkg" 2>/dev/null || true)"
     if [[ -z "$ver" ]]; then
       # Not available in current selection/repos; skip quietly
       return 0
     fi
     echo "  -> $pkg version detected by opam: $ver"
+
     local overlay="$HOME/opam-flocq-win-overlay"
     local pkgdir="$overlay/packages/$pkg/$pkg.$ver"
     mkdir -p "$pkgdir"
 
     cat > "$pkgdir/opam" <<'OPAM'
 opam-version: "2.0"
+
 build: [
-  # Windows robustness: remake DB may get corrupted, clean it first
+  # --- Windows via native Win32 runner ---
   [ "sh" "-exc"
     "if [ -x ./remake ]; then \
        ./remake clean || true; \
        rm -f .remake.db .remake.db* 2>/dev/null || true; \
      fi" ] { os = "win32" }
-  # Disable native compiler on Windows (mingw/cygwin) to avoid 'Failed to load database'
-  [ "env" "COQFLAGS=-native-compiler off" "COQEXTRAFLAGS=-native-compiler off" "./remake" "-j%{jobs}%" ] { os = "win32" }
-  # Default build elsewhere
-  [ "./remake" "-j%{jobs}%" ] { os != "win32" }
+  [ "env" "COQFLAGS=-native-compiler off" "COQEXTRAFLAGS=-native-compiler off" "./remake" "-d" "-j%{jobs}%" ] { os = "win32" }
+
+  # --- Windows via Cygwin runner (opam reports os=cygwin) ---
+  [ "bash" "-lc"
+    "if [ -x ./remake ]; then \
+       ./remake clean || true; \
+       rm -f .remake.db .remake.db* 2>/dev/null || true; \
+     fi" ] { os = "cygwin" }
+  [ "bash" "-lc" "COQFLAGS='-native-compiler off' COQEXTRAFLAGS='-native-compiler off' ./remake -d -j%{jobs}%" ] { os = "cygwin" }
+
+  # --- Other OSes ---
+  [ "./remake" "-d" "-j%{jobs}%" ] { os != "win32" & os != "cygwin" }
 ]
+
 install: [
   [ "./remake" "install" ]
 ]
 OPAM
-    # Add/refresh the local overlay with high priority (idempotent)
+
+    # Refresh/add the local overlay with high priority (idempotent)
     opam repository remove flocq-win-local >/dev/null 2>&1 || true
     opam repository add flocq-win-local "file://$overlay" --priority=100 || true
     opam update
   }
 
-  # Try for both package names (depending on pick / Coq version)
+  # Try for both package names depending on pick / Coq version
   apply_overlay_for_pkg "coq-flocq"
   apply_overlay_for_pkg "coq-flocq3"
 fi
