@@ -34,6 +34,54 @@ opam config set jobs $COQ_PLATFORM_JOBS
 # One can rise it as root on MacOS, but only for a root shell, not for the current shell
 ulimit -S -s 65520
 
+## --- Windows-only: Flocq workaround (remake DB clean + disable native compiler), with auto version detection
+if [[ "$OSTYPE" == cygwin* ]]; then
+  echo "[Windows] Preparing Flocq/Flocq3 workaround (auto-detected versions)"
+
+  # Helper to create an overlay for a given opam package if it is available
+  apply_overlay_for_pkg () {
+    local pkg="$1"
+    # Ask opam which version would be installed given current repos & constraints
+    local ver
+    ver="$(opam show -f version "$pkg" 2>/dev/null || true)"
+    if [[ -z "$ver" ]]; then
+      # Not available in current selection/repos; skip quietly
+      return 0
+    fi
+    echo "  -> $pkg version detected by opam: $ver"
+    local overlay="$HOME/opam-flocq-win-overlay"
+    local pkgdir="$overlay/packages/$pkg/$pkg.$ver"
+    mkdir -p "$pkgdir"
+
+    cat > "$pkgdir/opam" <<'OPAM'
+opam-version: "2.0"
+build: [
+  # Windows robustness: remake DB may get corrupted, clean it first
+  [ "sh" "-exc"
+    "if [ -x ./remake ]; then \
+       ./remake clean || true; \
+       rm -f .remake.db .remake.db* 2>/dev/null || true; \
+     fi" ] { os = "win32" }
+  # Disable native compiler on Windows (mingw/cygwin) to avoid 'Failed to load database'
+  [ "env" "COQFLAGS=-native-compiler off" "COQEXTRAFLAGS=-native-compiler off" "./remake" "-j%{jobs}%" ] { os = "win32" }
+  # Default build elsewhere
+  [ "./remake" "-j%{jobs}%" ] { os != "win32" }
+]
+install: [
+  [ "./remake" "install" ]
+]
+OPAM
+    # Add/refresh the local overlay with high priority (idempotent)
+    opam repository remove flocq-win-local >/dev/null 2>&1 || true
+    opam repository add flocq-win-local "file://$overlay" --priority=100 || true
+    opam update
+  }
+
+  # Try for both package names (depending on pick / Coq version)
+  apply_overlay_for_pkg "coq-flocq"
+  apply_overlay_for_pkg "coq-flocq3"
+fi
+
 case "$COQ_PLATFORM_PARALLEL" in
   [pP]) 
     echo "===== INSTALL OPAM PACKAGES (PARALLEL) ====="
