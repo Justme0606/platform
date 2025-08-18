@@ -67,52 +67,34 @@ jobs:
         if: ${{ github.event.inputs.platform != '' }}
         run: echo "PLATFORM=${{ github.event.inputs.platform }}" >> $GITHUB_ENV
 
-      # ... tes steps précédents ...
+      - name: Clean previous cygwin root
+        shell: cmd
+        run: if exist C:\cygwin_coq_platform rmdir /S /Q C:\cygwin_coq_platform
 
-      - name: Seed Cygwin postinstall (sanitize coqdep for Remake)
-        shell: powershell
-        run: |
-          $dest = "C:\cygwin_coq_platform"
-          New-Item -ItemType Directory -Force -Path "$dest\etc\postinstall" | Out-Null
-          @'
-          #!/usr/bin/env bash
-          set -euo pipefail
+      - name: Run common platform script
+        shell: cmd
+        run: coq_platform_make_windows.bat -destcyg=C:\cygwin_coq_platform -arch=${{matrix.architecture}} -packages=${{matrix.variant}} %PLATFORM_ARGS% -dumplogs
 
-          # Assure /usr/local/bin présent
-          mkdir -p /usr/local/bin
-
-          # Wrapper coqdep : supprime le token vers rocqworker.exe
-          cat >/usr/local/bin/coqdep <<'SH'
+      - name: Install coqdep sanitizer (after cygwin is installed)
+        shell: cmd
+        run: ^
+          C:\cygwin_coq_platform\bin\bash --login -lc ^
+          "set -euo pipefail; \
+          mkdir -p /usr/local/bin; \
+          cat >/usr/local/bin/coqdep <<'SH' ; \
           #!/usr/bin/env bash
           set -euo pipefail
           if command -v coqdep.exe >/dev/null 2>&1; then
-            exec "$(command -v coqdep.exe)" "$@" | sed -E 's#[[:space:]][A-Za-z]\\:/[^ ]*rocqworker\.exe##g'
+            exec \"$(command -v coqdep.exe)\" \"\$@\" | sed -E 's#[[:space:]][A-Za-z]\\:/[^ ]*rocqworker\.exe##g'
           elif command -v rocq >/dev/null 2>&1; then
-            exec rocq dep "$@" | sed -E 's#[[:space:]][A-Za-z]\\:/[^ ]*rocqworker\.exe##g'
+            exec rocq dep \"\$@\" | sed -E 's#[[:space:]][A-Za-z]\\:/[^ ]*rocqworker\.exe##g'
           else
-            echo "coqdep-sanitize: neither coqdep.exe nor rocq found" >&2
+            echo coqdep-sanitize: neither coqdep.exe nor rocq found >&2
             exit 127
           fi
-          SH
-          chmod +x /usr/local/bin/coqdep
+          SH  
+          chmod +x /usr/local/bin/coqdep"
 
-          if ! command -v remake >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
-            cat >/usr/local/bin/remake <<'SH'
-            #!/usr/bin/env bash
-            exec make "$@"
-            SH
-            chmod +x /usr/local/bin/remake
-          fi
-          '@ | Set-Content -NoNewline -Encoding Ascii "$dest\etc\postinstall\000-coqdep-wrapper.sh"
-
-      - name: Run common platform script
-        shell: cmd
-        run: coq_platform_make_windows.bat -destcyg=C:\cygwin_coq_platform -arch=${{matrix.architecture}} -packages=${{matrix.variant}} %PLATFORM_ARGS% -dumplogs
-
-
-      - name: Run common platform script
-        shell: cmd
-        run: coq_platform_make_windows.bat -destcyg=C:\cygwin_coq_platform -arch=${{matrix.architecture}} -packages=${{matrix.variant}} %PLATFORM_ARGS% -dumplogs
 
       - name: Create installer
         shell: cmd
