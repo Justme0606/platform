@@ -76,25 +76,26 @@ jobs:
         run: coq_platform_make_windows.bat -destcyg=C:\cygwin_coq_platform -arch=${{matrix.architecture}} -packages=${{matrix.variant}} %PLATFORM_ARGS% -dumplogs
 
       - name: Install coqdep sanitizer (after cygwin is installed)
-        shell: cmd
-        run: ^
-          C:\cygwin_coq_platform\bin\bash --login -lc ^
-          "set -euo pipefail; \
-          mkdir -p /usr/local/bin; \
-          cat >/usr/local/bin/coqdep <<'SH' ; \
+        shell: pwsh
+        run: |
+          $cmd = @'
+          set -euo pipefail
+          mkdir -p /usr/local/bin
+          cat >/usr/local/bin/coqdep <<'SH'
           #!/usr/bin/env bash
           set -euo pipefail
           if command -v coqdep.exe >/dev/null 2>&1; then
-            exec \"$(command -v coqdep.exe)\" \"\$@\" | sed -E 's#[[:space:]][A-Za-z]\\:/[^ ]*rocqworker\.exe##g'
+            exec "$(command -v coqdep.exe)" "$@" | sed -E 's#[[:space:]][A-Za-z]\\:/[^ ]*rocqworker\.exe##g'
           elif command -v rocq >/dev/null 2>&1; then
-            exec rocq dep \"\$@\" | sed -E 's#[[:space:]][A-Za-z]\\:/[^ ]*rocqworker\.exe##g'
+            exec rocq dep "$@" | sed -E 's#[[:space:]][A-Za-z]\\:/[^ ]*rocqworker\.exe##g'
           else
-            echo coqdep-sanitize: neither coqdep.exe nor rocq found >&2
+            echo "coqdep-sanitize: neither coqdep.exe nor rocq found" >&2
             exit 127
           fi
-          SH  
-          chmod +x /usr/local/bin/coqdep"
-
+          SH
+          chmod +x /usr/local/bin/coqdep
+          '@
+          & "C:\cygwin_coq_platform\bin\bash" --login -lc $cmd
 
       - name: Create installer
         shell: cmd
