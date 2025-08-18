@@ -79,7 +79,7 @@ jobs:
 
       # 2) Installer le wrapper coqdep maintenant que Cygwin existe
       - name: Install coqdep sanitizer (after cygwin is installed)
-        if: ${{ matrix.variant == '9.0+preview~2025.08' }}
+        if: ${{ !startsWith(matrix.variant, '8.') }}
         shell: pwsh
         run: |
           $cmd = @'
@@ -102,12 +102,11 @@ jobs:
           & "C:\cygwin_coq_platform\bin\bash" --login -lc $cmd
 
       # 3) (9.0) Reconstruire Flocq après le wrapper
-      - name: Rebuild Flocq after sanitizer (9.0 only)
-        if: ${{ matrix.variant == '9.0+preview~2025.08' }}
+      - name: Rebuild affected libs after sanitizer (>=9 only)
+        if: ${{ !startsWith(matrix.variant, '8.') }}
         shell: pwsh
         run: |
-          & "C:\cygwin_coq_platform\bin\bash" --login -lc "opam reinstall -y coq-flocq || opam install -y coq-flocq"
-
+          & "C:\cygwin_coq_platform\bin\bash" --login -lc "opam reinstall -y coq-flocq coq-coquelicot || opam install -y coq-flocq coq-coquelicot"
 
       - name: Create installer
         shell: cmd
