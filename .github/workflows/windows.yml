@@ -80,10 +80,27 @@ jobs:
         shell: cmd
         run: C:\cygwin_coq_platform\bin\bash --login -lc "cd /platform && install -m 755 windows/coqdep-sanitize /usr/local/bin/coqdep && command -v coqdep && (coqdep -v || true)"
 
-      - name: Rebuild flocq+coquelicot after sanitizer (>=9 only)
+     - name: Rebuild flocq+coquelicot after sanitizer (>=9 only)
         if: ${{ !startsWith(matrix.variant, '8.') }}
         shell: cmd
-        run: C:\cygwin_coq_platform\bin\bash --login -lc "set -e; [ -d /opam ] && export OPAMROOT=/opam; sw=$(opam switch list --short | head -n1 || true); if [ -n \"$sw\" ]; then eval $(opam env --switch=$sw); else eval $(opam env); fi; opam reinstall -y coq-flocq coq-coquelicot || opam install -y coq-flocq coq-coquelicot"
+        run: >
+          C:\cygwin_coq_platform\bin\bash --login -lc
+          "set -e;
+          if ! command -v opam >/dev/null 2>&1; then
+            echo 'opam not found (skip rebuild)'; exit 0; fi;
+          [ -d /opam ] && export OPAMROOT=/opam;
+          if ! opam var root >/dev/null 2>&1; then
+            opam init --bare -y --disable-sandboxing || true; fi;
+          if ! opam switch show >/dev/null 2>&1; then
+            sw=$(opam switch list --short | head -n1 || true);
+            if [ -z \"$sw\" ]; then echo 'no opam switch (skip)'; exit 0; fi;
+            eval $(opam env --switch=$sw);
+          else
+            eval $(opam env);
+          fi;
+          echo 'Using switch:' $(opam switch show);
+          opam reinstall -y coq-flocq coq-coquelicot ||
+          opam install   -y coq-flocq coq-coquelicot"
 
       - name: Create installer
         shell: cmd
