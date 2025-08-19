@@ -71,13 +71,11 @@ jobs:
         shell: cmd
         run: if exist C:\cygwin_coq_platform rmdir /S /Q C:\cygwin_coq_platform
 
-      # 1) Installation Platform (peut échouer sur Flocq en 9.0, on tolère)
       - name: Run common platform script
         shell: cmd
-        continue-on-error: ${{ matrix.variant == '9.0+preview~2025.08' }}
+        continue-on-error: ${{ !startsWith(matrix.variant, '8.') }}
         run: coq_platform_make_windows.bat -destcyg=C:\cygwin_coq_platform -arch=${{matrix.architecture}} -packages=${{matrix.variant}} %PLATFORM_ARGS% -dumplogs
 
-      # 2) Installer le wrapper coqdep maintenant que Cygwin existe
       - name: Install coqdep sanitizer (after cygwin is installed)
         if: ${{ !startsWith(matrix.variant, '8.') }}
         shell: pwsh
@@ -90,7 +88,7 @@ jobs:
           #!/usr/bin/env bash
           set -eu
           (set -o pipefail) 2>/dev/null || true
-          # Normalise C\:/.../rocqworker.exe -> /cygdrive/c/.../rocqworker.exe
+          # Normalise "C\:/.../rocqworker.exe" -> "/cygdrive/c/.../rocqworker.exe"
           filter='s#[[:space:]]([A-Za-z])\\:/([^ ]*rocqworker\.exe)#[ /cygdrive/\L\1/\2]#g'
           if command -v coqdep.exe >/dev/null 2>&1; then
             exec "$(command -v coqdep.exe)" "$@" | sed -E "$filter"
@@ -103,9 +101,10 @@ jobs:
           SH
           chmod +x /usr/local/bin/coqdep
           '@
-          & "C:\cygwin_coq_platform\bin\bash" --login -lc $cmd
+          # IMPORTANT: convertir CRLF -> LF avant de passer à bash
+          $cmdLF = $cmd -replace "`r`n","`n" -replace "`r",""
+          & "C:\cygwin_coq_platform\bin\bash" --login -lc $cmdLF
 
-      # 3) (9.0) Reconstruire Flocq après le wrapper
       - name: Rebuild affected libs after sanitizer (>=9 only)
         if: ${{ !startsWith(matrix.variant, '8.') }}
         shell: pwsh
@@ -114,16 +113,13 @@ jobs:
           set -eu
           (set -o pipefail) 2>/dev/null || true
 
-          # 0) opam dispo ?
           if ! command -v opam >/dev/null 2>&1; then
-            echo "opam not found in PATH (Cygwin not installed?) — skipping rebuild."
+            echo "opam not found in PATH — skipping rebuild."
             exit 0
           fi
 
-          # 1) racine opam de la Platform (souvent /opam)
-          if [ -d /opam ]; then export OPAMROOT=/opam; fi
+          [ -d /opam ] && export OPAMROOT=/opam
 
-          # 2) activer un switch (si aucun actif)
           if ! opam switch show >/dev/null 2>&1; then
             sw="$(opam switch list --short | head -n1 || true)"
             if [ -z "$sw" ]; then
@@ -137,11 +133,10 @@ jobs:
 
           echo "Using switch: $(opam switch show)"
 
-          # 3) (ré)installer les libs affectées
           opam reinstall -y coq-flocq coq-coquelicot || opam install -y coq-flocq coq-coquelicot
           '@
-          & "C:\cygwin_coq_platform\bin\bash" --login -lc $cmd
-
+          $cmdLF = $cmd -replace "`r`n","`n" -replace "`r",""
+          & "C:\cygwin_coq_platform\bin\bash" --login -lc $cmdLF
 
       - name: Create installer
         shell: cmd
