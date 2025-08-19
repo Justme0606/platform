@@ -80,7 +80,7 @@ jobs:
         shell: cmd
         run: C:\cygwin_coq_platform\bin\bash --login -lc "cd /platform && install -m 755 windows/coqdep-sanitize /usr/local/bin/coqdep && command -v coqdep && (coqdep -v || true)"
 
-     - name: Rebuild flocq+coquelicot after sanitizer (>=9 only)
+      - name: Rebuild flocq+coquelicot after sanitizer (>=9 only)
         if: ${{ !startsWith(matrix.variant, '8.') }}
         shell: cmd
         run: >
