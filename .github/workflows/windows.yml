@@ -110,7 +110,38 @@ jobs:
         if: ${{ !startsWith(matrix.variant, '8.') }}
         shell: pwsh
         run: |
-          & "C:\cygwin_coq_platform\bin\bash" --login -lc "opam reinstall -y coq-flocq coq-coquelicot || opam install -y coq-flocq coq-coquelicot"
+          $cmd = @'
+          set -eu
+          (set -o pipefail) 2>/dev/null || true
+
+          # 0) opam dispo ?
+          if ! command -v opam >/dev/null 2>&1; then
+            echo "opam not found in PATH (Cygwin not installed?) — skipping rebuild."
+            exit 0
+          fi
+
+          # 1) racine opam de la Platform (souvent /opam)
+          if [ -d /opam ]; then export OPAMROOT=/opam; fi
+
+          # 2) activer un switch (si aucun actif)
+          if ! opam switch show >/dev/null 2>&1; then
+            sw="$(opam switch list --short | head -n1 || true)"
+            if [ -z "$sw" ]; then
+              echo "No opam switch found — skipping rebuild."
+              exit 0
+            fi
+            eval "$(opam env --switch="$sw")"
+          else
+            eval "$(opam env)"
+          fi
+
+          echo "Using switch: $(opam switch show)"
+
+          # 3) (ré)installer les libs affectées
+          opam reinstall -y coq-flocq coq-coquelicot || opam install -y coq-flocq coq-coquelicot
+          '@
+          & "C:\cygwin_coq_platform\bin\bash" --login -lc $cmd
+
 
       - name: Create installer
         shell: cmd
