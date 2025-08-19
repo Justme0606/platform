@@ -76,67 +76,14 @@ jobs:
         continue-on-error: ${{ !startsWith(matrix.variant, '8.') }}
         run: coq_platform_make_windows.bat -destcyg=C:\cygwin_coq_platform -arch=${{matrix.architecture}} -packages=${{matrix.variant}} %PLATFORM_ARGS% -dumplogs
 
-      - name: Install coqdep sanitizer (after cygwin is installed)
+      - name: Install coqdep sanitizer from repo (all variants)
+        shell: cmd
+        run: C:\cygwin_coq_platform\bin\bash --login -lc "cd /platform && install -m 755 windows/coqdep-sanitize /usr/local/bin/coqdep && command -v coqdep && (coqdep -v || true)"
+
+      - name: Rebuild flocq+coquelicot after sanitizer (>=9 only)
         if: ${{ !startsWith(matrix.variant, '8.') }}
-        shell: pwsh
-        run: |
-          $cmd = @'
-          set -eu
-          (set -o pipefail) 2>/dev/null || true
-          mkdir -p /usr/local/bin
-          cat >/usr/local/bin/coqdep <<'SH'
-          #!/usr/bin/env bash
-          set -eu
-          (set -o pipefail) 2>/dev/null || true
-          # Normalise "C\:/.../rocqworker.exe" -> "/cygdrive/c/.../rocqworker.exe"
-          filter='s#[[:space:]]([A-Za-z])\\:/([^ ]*rocqworker\.exe)#[ /cygdrive/\L\1/\2]#g'
-          if command -v coqdep.exe >/dev/null 2>&1; then
-            exec "$(command -v coqdep.exe)" "$@" | sed -E "$filter"
-          elif command -v rocq >/dev/null 2>&1; then
-            exec rocq dep "$@" | sed -E "$filter"
-          else
-            echo "coqdep-sanitize: neither coqdep.exe nor rocq found" >&2
-            exit 127
-          fi
-          SH
-          chmod +x /usr/local/bin/coqdep
-          '@
-          # IMPORTANT: convertir CRLF -> LF avant de passer à bash
-          $cmdLF = $cmd -replace "`r`n","`n" -replace "`r",""
-          & "C:\cygwin_coq_platform\bin\bash" --login -lc $cmdLF
-
-      - name: Rebuild affected libs after sanitizer (>=9 only)
-        if: ${{ !startsWith(matrix.variant, '8.') }}
-        shell: pwsh
-        run: |
-          $cmd = @'
-          set -eu
-          (set -o pipefail) 2>/dev/null || true
-
-          if ! command -v opam >/dev/null 2>&1; then
-            echo "opam not found in PATH — skipping rebuild."
-            exit 0
-          fi
-
-          [ -d /opam ] && export OPAMROOT=/opam
-
-          if ! opam switch show >/dev/null 2>&1; then
-            sw="$(opam switch list --short | head -n1 || true)"
-            if [ -z "$sw" ]; then
-              echo "No opam switch found — skipping rebuild."
-              exit 0
-            fi
-            eval "$(opam env --switch="$sw")"
-          else
-            eval "$(opam env)"
-          fi
-
-          echo "Using switch: $(opam switch show)"
-
-          opam reinstall -y coq-flocq coq-coquelicot || opam install -y coq-flocq coq-coquelicot
-          '@
-          $cmdLF = $cmd -replace "`r`n","`n" -replace "`r",""
-          & "C:\cygwin_coq_platform\bin\bash" --login -lc $cmdLF
+        shell: cmd
+        run: C:\cygwin_coq_platform\bin\bash --login -lc "set -e; [ -d /opam ] && export OPAMROOT=/opam; sw=$(opam switch list --short | head -n1 || true); if [ -n \"$sw\" ]; then eval $(opam env --switch=$sw); else eval $(opam env); fi; opam reinstall -y coq-flocq coq-coquelicot || opam install -y coq-flocq coq-coquelicot"
 
       - name: Create installer
         shell: cmd
