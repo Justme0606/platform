@@ -13,7 +13,6 @@ build: [
   ["./remake" "-j%{jobs}%"]
 ]
 install: ["./remake" "install" "install-glob"]
-install: ["./remake" "install" "install-glob"]
 depends: [
   "coq" {>= "8.15"}
   "conf-autoconf" {build & dev}
