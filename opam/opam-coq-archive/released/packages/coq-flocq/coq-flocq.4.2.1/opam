@@ -7,10 +7,17 @@ license: "LGPL-3.0-or-later"
 build: [
   ["autoconf"] {dev}
   ["./configure"]
-  ["./remake" "Makefile.dep"] {os = "win32"}
-  ["bash" "-lc" "sed -E -i -e 's#([A-Za-z]):\\\\#\\\\#g' -e 's#([A-Za-z]):/#/#g' Makefile.dep"] {os = "win32"}
+
+  # Windows only: première passe pour générer les .dep (sans échouer la build)
+  ["./remake" "-j1" "-k"] {os = "win32"}
+
+  # Windows only: corriger tous les .dep présents (C:\ et C:/)
+  ["bash" "-lc" "set -euo pipefail; deps=$(find . -maxdepth 3 -name '*.dep' -type f -print || true); if [ -n \"$deps\" ]; then sed -E -i -e 's#([A-Za-z]):\\\\#\\\\#g' -e 's#([A-Za-z]):/#/#g' $deps; fi"] {os = "win32"}
+
+  # Build normal
   ["./remake" "-j%{jobs}%"]
 ]
+
 install: ["./remake" "install" "install-glob"]
 depends: [
   "coq" {>= "8.15"}
