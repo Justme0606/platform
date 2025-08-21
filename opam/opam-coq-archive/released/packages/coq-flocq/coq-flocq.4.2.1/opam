@@ -7,9 +7,8 @@ license: "LGPL-3.0-or-later"
 build: [
   ["autoconf"] {dev}
   ["./configure"]
-  ["bash" "-lc" "set -euo pipefail; n=$(find . -name '*.dep' | wc -l || true); if [ \"$n\" -eq 0 ]; then ./remake -j1 -k || true; fi"]
-  ["bash" "-lc" "set -euo pipefail; find . -name '*.dep' -type f -print -exec sed -E -i -e 's#([A-Za-z]):\\\\#\\\\#g' -e 's#([A-Za-z]):/#/#g' {} +"]
-  ["bash" "-lc" "grep -RIn '^[A-Za-z]:' . --include='*.dep' || true"]
+  ["./remake" "Makefile.dep"]
+  ["bash" "-lc" "sed -E -i -e 's#([A-Za-z]):\\\\#\\\\#g' -e 's#([A-Za-z]):/#/#g' Makefile.dep"]
   ["./remake" "-j%{jobs}%"]
 ]
 install: ["./remake" "install" "install-glob"]
