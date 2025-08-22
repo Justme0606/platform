@@ -6,22 +6,13 @@ bug-reports: "https://gitlab.inria.fr/flocq/flocq/issues"
 license: "LGPL-3.0-or-later"
 build: [
   ["autoconf"] {dev}
+
+  # Patch Remakefile.in to force coqdep to disable worker
+  # This replaces @COQDEP@ with "@COQDEP@ -worker """, so remake will not
+  # inject the path to rocqworker.exe in dependencies (which breaks Windows)
+  ["sed" "-i" "-e" "s/@COQDEP@/@COQDEP@ -worker \\\"\\\"/" "Remakefile.in"] {os = "win32"}
+
   ["./configure"]
-
-  # Windows only: try to generate .dep files
-  # remake may fail because coqdep (since Rocq 9.0) introduces invalid dependencies
-  # pointing to "C:/...rocqworker.exe". remake rejects these paths and stops.
-  # We wrap the call with "|| true" to ignore the non-zero exit code,
-  # but remake usually still writes the .dep files before failing.
-  ["bash" "-lc" "(./remake -j1 -k || true)"] {os = "win32"}
-
-  # Windows only: clean all .dep files
-  # - Remove invalid references to rocqworker.exe
-  # - Strip Windows drive letters (C:\ or C:/) which are not POSIX-compliant
-  # This ensures remake can later parse the dependency files without errors.
-  ["bash" "-lc" "for f in $(find . -name '*.dep'); do sed -E -i -e 's#[A-Za-z]:[^ ]*rocqworker.exe##g' -e 's#([A-Za-z]):\\\\#\\\\#g' -e 's#([A-Za-z]):/#/#g' $f; done || true"] {os = "win32"}
-
-  # Normal build step (now safe)
   ["./remake" "-j%{jobs}%"]
 ]
 install: ["./remake" "install" "install-glob"]
