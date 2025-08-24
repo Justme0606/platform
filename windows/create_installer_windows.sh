@@ -359,7 +359,7 @@ if [ "${COQ_MAJOR:-0}" -ge 9 ]; then
   echo "Coq >= 9 detected — sourcing split packages"
   for pkg in coq-core coq-stdlib coqide-server "${ide_name}" coq-compcert coq-vst coq-vst-32; do
     if opam list --installed --silent "${pkg}"; then
-      packagefull=$(opam list --installed-roots --short --columns=name,version "${pkg}" | sed 's/ /./')
+      packagefull=$(opam list --installed --short --columns=name,version "${pkg}" | sed 's/ /./')
       echo "→ opam source ${packagefull}"
       opam source --dir="source/${pkg}" "${packagefull}"
     fi
@@ -369,7 +369,7 @@ else
   echo "Coq < 9 detected — sourcing monolithic packages"
   for pkg in coq coqide coq-compcert coq-vst coq-vst-32; do
     if opam list --installed --silent "${pkg}"; then
-      packagefull=$(opam list --installed-roots --short --columns=name,version "${pkg}" | sed 's/ /./')
+      packagefull=$(opam list --installed --short --columns=name,version "${pkg}" | sed 's/ /./')
       echo "→ opam source ${packagefull}"
       opam source --dir="source/${pkg}" "${packagefull}"
     fi
