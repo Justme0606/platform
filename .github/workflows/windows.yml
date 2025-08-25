@@ -125,10 +125,72 @@ jobs:
           cd ${{steps.download.outputs.download-path}}
           FOR %%f IN (*.exe) DO %%f /S /D=C:\Coq
 
-      - name: 'Run Windows smoke test kit'
+      - name: 'Smoke coqc (Windows, Rocq 9.0 aware)'
         shell: cmd
         run: |
-          CD ${{steps.download-smoke.outputs.download-path}}
-          DIR
-          SET PATH=C:\Coq\bin\;%PATH%
-          CALL run-smoke-test.bat
+          @echo off
+          setlocal enabledelayedexpansion
+
+          set "BIN="
+          for %%D in (C:\Coq\bin C:\Coq-Platform*\bin C:\bin\Coq-Platform*\bin) do (
+            if exist "%%D\coqc.exe" set "BIN=%%D"
+          )
+          if "%BIN%"=="" (
+            for /f "tokens=*" %%P in ('where coqc 2^>NUL') do set "BIN=%%~dpP"
+          )
+          if "%BIN%"=="" (
+            echo coqc.exe not found
+            exit /b 1
+          )
+
+          echo Using BIN=%BIN%
+          rem Inclure bin et stublibs (coq-hammer etc.)
+          set "PATH=%BIN%;%PATH%"
+          if exist "%BIN%\..\lib\stublibs" set "PATH=%BIN%\..\lib\stublibs;%PATH%"
+
+          "%BIN%\coqc.exe" -v && exit /b 0
+
+          echo coqc -v failed, trying with -coqlib detection for Rocq 9.0+
+
+          set "LIBBASE=%BIN%\..\lib"
+          for %%L in ("%LIBBASE%\coq" "%LIBBASE%\rocq" "%LIBBASE%\coq-stdlib") do (
+            if exist "%%~fL\theories\Init\Prelude.vo" (
+              echo Trying -coqlib %%~fL
+              "%BIN%\coqc.exe" -coqlib "%%~fL" -v && exit /b 0
+            )
+            if exist "%%~fL\Init\Prelude.vo" (
+              echo Trying -coqlib %%~fL
+              "%BIN%\coqc.exe" -coqlib "%%~fL" -v && exit /b 0
+            )
+          )
+
+          echo Last resort: boot mode...
+          "%BIN%\coqc.exe" -boot -noinit -v
+
+      - name: 'Run Windows smoke test kit (Rocq-aware)'
+        shell: cmd
+        run: |
+          @echo off
+          setlocal enabledelayedexpansion
+
+          cd /d ${{ steps.download-smoke.outputs.download-path }}
+          dir
+
+          rem Detect coqc.exe in common locations or via PATH
+          set "BIN="
+          for %%D in (C:\Coq\bin C:\Coq-Platform*\bin C:\bin\Coq-Platform*\bin) do (
+            if exist "%%D\coqc.exe" set "BIN=%%D"
+          )
+          if "%BIN%"=="" (
+            for /f "tokens=*" %%P in ('where coqc 2^>NUL') do set "BIN=%%~dpP"
+          )
+
+          if not "%BIN%"=="" (
+            echo Using BIN=%BIN%
+            set "PATH=%BIN%;%PATH%"
+            if exist "%BIN%\..\lib\stublibs" set "PATH=%BIN%\..\lib\stublibs;%PATH%"
+          ) else (
+            echo coqc.exe not found; continuing with current PATH…
+          )
+
+          call run-smoke-test.bat
