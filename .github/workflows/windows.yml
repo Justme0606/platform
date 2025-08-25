@@ -125,10 +125,6 @@ jobs:
           cd ${{steps.download.outputs.download-path}}
           FOR %%f IN (*.exe) DO %%f /S /D=C:\Coq
 
-      - name: 'Smoke coqc'
-        shell: cmd
-        run: C:\Coq\bin\coqc.exe -v
-
       - name: 'Run Windows smoke test kit'
         shell: cmd
         run: |
