@@ -71,6 +71,12 @@ int main (int argc, char* argv[])
         free(path_new);
     }
 
+    // Generate and set COQLIB value (Coq/Rocq standard library inside the bundle)
+    strncpy(value, resources_folder, sizeof(value)-1);
+    value[sizeof(value)-1] = '\0';
+    strncat(value, "/lib/coq", sizeof(value)-strlen(value)-1);
+    setenv("COQLIB", value, 1);
+
     // call executable
     {
         char ** newargs = (char**)calloc(argc+1, sizeof(char*));
