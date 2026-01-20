@@ -1,19 +1,11 @@
 #!/bin/bash
 
 # Directory of this script:
-# .../Rocq-Platform.app/Contents/Resources/bin
+# .../Coq-Platform*.app/Contents/Resources/bin
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Go up to Contents/Resources
+# Contents/Resources
 RESOURCES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-BIN_DIR="$RESOURCES_DIR/bin"
-COQLIB_DIR="$RESOURCES_DIR/lib/coq"
-
-# Apply environment directly (no eval needed)
-export PATH="$BIN_DIR:$PATH"
-export COQLIB="$COQLIB_DIR"
-
-echo "Environment configured:"
-echo "  PATH   = $BIN_DIR"
-echo "  COQLIB = $COQLIB_DIR"
+export PATH="$RESOURCES_DIR/bin:$PATH"
+export COQLIB="$RESOURCES_DIR/lib/coq"
