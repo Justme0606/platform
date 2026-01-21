@@ -1,28 +1,16 @@
 #!/bin/bash
 
-# Start from the directory of this script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Find the bundle Resources directory by walking up until we see both bin/ and lib/
-RESOURCES_DIR=""
-CUR="$SCRIPT_DIR"
-for _ in 1 2 3 4 5 6 7 8; do
-  if [ -d "$CUR/bin" ] && [ -d "$CUR/lib" ]; then
-    RESOURCES_DIR="$CUR"
-    break
-  fi
-  CUR="$(cd "$CUR/.." && pwd)"
-done
-
-if [ -z "$RESOURCES_DIR" ]; then
-  echo "coq-env.sh: ERROR: could not locate Resources directory from '$SCRIPT_DIR'" >&2
-  return 1 2>/dev/null || exit 1
+# Coq-Platform (ancien nom)
+if [ -f "/Applications/Coq-Platform@@VERSION@@.app/Contents/Resources/bin/coqc" ]
+then
+  echo "export PATH='/Applications/Coq-Platform@@VERSION@@.app/Contents/Resources/bin':"'"$PATH"'
+  echo "export COQLIB='/Applications/Coq-Platform@@VERSION@@.app/Contents/Resources/lib/coq'"
 fi
 
-export PATH="$RESOURCES_DIR/bin:$PATH"
-
-# Prefer ROCQLIB for Rocq 9+, keep COQLIB for compatibility
-if [ -d "$RESOURCES_DIR/lib/coq" ]; then
-  export ROCQLIB="$RESOURCES_DIR/lib/coq"
-  export COQLIB="$RESOURCES_DIR/lib/coq"
+# Rocq-Platform (nouveau nom)
+if [ -f "/Applications/Rocq-Platform@@VERSION@@.app/Contents/Resources/bin/coqc" ]
+then
+  echo "export PATH='/Applications/Rocq-Platform@@VERSION@@.app/Contents/Resources/bin':"'"$PATH"'
+  echo "export ROCQLIB='/Applications/Rocq-Platform@@VERSION@@.app/Contents/Resources/lib/coq'"
+  echo "export COQLIB='/Applications/Rocq-Platform@@VERSION@@.app/Contents/Resources/lib/coq'"
 fi
