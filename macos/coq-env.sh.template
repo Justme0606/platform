@@ -1,11 +1,8 @@
 #!/bin/bash
 
-# Directory of this script:
-# .../Coq-Platform*.app/Contents/Resources/bin
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Contents/Resources
 RESOURCES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 export PATH="$RESOURCES_DIR/bin:$PATH"
+export ROCQLIB="$RESOURCES_DIR/lib/coq"
 export COQLIB="$RESOURCES_DIR/lib/coq"
