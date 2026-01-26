@@ -6,7 +6,7 @@ name: Macos
 
 ###############################################################################
 # Schedule:
-# - push on any branch whose name matches v** or master
+# - push on main
 # - any pull request
 ###############################################################################
 on:
@@ -24,6 +24,14 @@ on:
         description: 'Arguments for the platform script:'
         required: true
         default: '-extent=x -parallel=p -jobs=2 -large=e -compcert=y -set-switch=y'
+      stage:
+        description: 'How far to run (build|dmg|smoke|all)'
+        required: true
+        default: 'all'
+      reuse_run_id:
+        description: 'Reuse artifacts from a previous workflow run ID (e.g. 1234567890)'
+        required: false
+        default: ''
 
 ###############################################################################
 # Platform script options shared among all jobs
@@ -34,15 +42,9 @@ env:
   HOMEBREW_NO_INSTALL_FROM_API:
   # See https://github.com/orgs/Homebrew/discussions/4612#discussioncomment-6351357
 
-###############################################################################
-# Macos
-#
-# CAVEATS:
-# - COQREGTESTING broken, it makes the script loop, so we install opam by hand
-###############################################################################
 jobs:
-  Macos_platform:
-    name: Macos
+  macos_build_platform:
+    name: Macos build platform
     runs-on: macos-latest
     strategy:
       fail-fast: false
@@ -65,7 +67,7 @@ jobs:
           xcode-select -p
           xcrun --show-sdk-path
           xcrun --show-sdk-platform-version || true
-          
+
       - name: Git checkout
         uses: actions/checkout@v4
 
@@ -73,11 +75,59 @@ jobs:
         if: ${{ github.event.inputs.platform != '' }}
         run: echo "PLATFORM=${{ github.event.inputs.platform }}" >> $GITHUB_ENV
 
+      - name: Decide whether to reuse artifacts
+        id: reuse
+        shell: bash
+        run: |
+          set -euo pipefail
+          REUSE_RUN_ID="${{ github.event.inputs.reuse_run_id }}"
+          STAGE="${{ github.event.inputs.stage }}"
+          if [[ -n "${REUSE_RUN_ID}" && "${STAGE}" != "build" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download Opam switch artifact from previous run
+        if: ${{ steps.reuse.outputs.enabled == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: 'Opam Switch Macos ${{matrix.variant}}'
+          run-id: ${{ github.event.inputs.reuse_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: reuse_artifacts/opam
+
+      - name: Download Smoke test kit artifact from previous run
+        if: ${{ steps.reuse.outputs.enabled == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: 'Smoke Test Kit Macos ${{matrix.variant}}'
+          run-id: ${{ github.event.inputs.reuse_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: reuse_artifacts/smoke
+
+      - name: Re-upload Opam switch into current run
+        if: ${{ steps.reuse.outputs.enabled == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'Opam Switch Macos ${{matrix.variant}}'
+          path: reuse_artifacts/opam/
+          retention-days: 2
+
+      - name: Re-upload Smoke test kit into current run
+        if: ${{ steps.reuse.outputs.enabled == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'Smoke Test Kit Macos ${{matrix.variant}}'
+          path: reuse_artifacts/smoke/
+          retention-days: 5
+
       - name: Cleanup, update and upgrade HomeBrew
+        if: ${{ steps.reuse.outputs.enabled != 'true' }}
         # This is to avoid errors of these kinds:
         # - ==> Downloading https://ghcr.io/v2/homebrew/core/harfbuzz/manifests/5.1.0
         #   Error: adwaita-icon-theme: Failed to download resource "harfbuzz_bottle_manifest"
-        #   The downloaded GitHub Packages manifest was corrupted or modified (it is not valid JSON): 
+        #   The downloaded GitHub Packages manifest was corrupted or modified (it is not valid JSON):
         # - dyld[45184]: Library not loaded: '/usr/local/opt/libunistring/lib/libunistring.2.dylib'
         #   Referenced from: '/usr/local/Cellar/wget/1.21.3/bin/wget'
         #   Reason: tried: '/usr/local/opt/libunistring/lib/libunistring.2.dylib' (no such file),
@@ -105,9 +155,22 @@ jobs:
           ls -l $(which pip3)
 
       - name: Install homebrew packages required by main script
+        if: ${{ steps.reuse.outputs.enabled != 'true' }}
         run: brew install wget
 
+      - name: Restore OPAM cache (download-cache + repo)
+        if: ${{ steps.reuse.outputs.enabled != 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            /Users/runner/.opam/download-cache
+            /Users/runner/.opam/repo
+          key: opam-${{ runner.os }}-${{ matrix.variant }}-${{ hashFiles('coq_platform_make.sh', 'release_conf.json', '**/*.opam', '**/opam.locked', '.github/workflows/*.yml') }}
+          restore-keys: |
+            opam-${{ runner.os }}-${{ matrix.variant }}-
+
       - name: Run common platform script
+        if: ${{ steps.reuse.outputs.enabled != 'true' }}
         shell: bash
         run: ./coq_platform_make.sh -packages=${{matrix.variant}} $PLATFORM_ARGS -dumplogs
 
@@ -126,29 +189,105 @@ jobs:
           path: /Users/runner/.opam/CP*${{matrix.variant}}/.opam-switch/build
 
       - name: Install bash (needed by smoke scripts)
+        if: ${{ steps.reuse.outputs.enabled != 'true' }}
         run: brew install bash
 
       - name: Create smoke test kit
+        if: ${{ steps.reuse.outputs.enabled != 'true' }}
         shell: bash
         run: |
           eval $(opam env)
           shell_scripts/create_smoke_test_kit.sh
 
       - name: 'Upload smoke test kit'
+        if: ${{ steps.reuse.outputs.enabled != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: 'Smoke Test Kit Macos ${{matrix.variant}}'
           path: smoke-test-kit/
           retention-days: 5
 
+      - name: Pack opam switch for reuse
+        if: ${{ steps.reuse.outputs.enabled != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -ld /Users/runner/.opam/CP*${{matrix.variant}} || true
+          SWITCH_DIR=$(ls -d /Users/runner/.opam/CP*${{matrix.variant}} | head -n1)
+          echo "SWITCH_DIR=$SWITCH_DIR" >> $GITHUB_ENV
+          tar -C "$(dirname "$SWITCH_DIR")" -czf "opam-switch-${{matrix.variant}}.tgz" "$(basename "$SWITCH_DIR")"
+
+      - name: Upload opam switch
+        if: ${{ steps.reuse.outputs.enabled != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'Opam Switch Macos ${{matrix.variant}}'
+          path: opam-switch-${{matrix.variant}}.tgz
+          retention-days: 2
+
+  macos_build_dmg:
+    name: Macos build dmg
+    needs: macos_build_platform
+    runs-on: macos-latest
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'dmg' || github.event.inputs.stage == 'all' || github.event.inputs.stage == 'smoke' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - '9.0~2025.08'
+          - '8.20~2025.01'
+
+    steps:
+      - name: Setup Xcode 16.0
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.0'
+
+      - name: Print toolchain info
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcode-select -p
+          xcrun --show-sdk-path
+          xcrun --show-sdk-platform-version || true
+
+      - name: Git checkout
+        uses: actions/checkout@v4
+
+      - name: Download opam switch
+        uses: actions/download-artifact@v4
+        with:
+          name: 'Opam Switch Macos ${{matrix.variant}}'
+
+      - name: Restore opam switch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /Users/runner/.opam
+          # artifact may contain tgz OR extracted dir (when reusing)
+          if ls opam-switch-${{matrix.variant}}.tgz >/dev/null 2>&1; then
+            tar -C /Users/runner/.opam -xzf "opam-switch-${{matrix.variant}}.tgz"
+          else
+            cp -R reuse_artifacts/opam/* /Users/runner/.opam/ || true
+            # fallback: if artifact contains CP* dir directly
+            for d in CP*${{matrix.variant}}; do
+              if [ -d "$d" ]; then
+                cp -R "$d" /Users/runner/.opam/
+              fi
+            done
+          fi
+          ls -ld /Users/runner/.opam/CP*${{matrix.variant}}
+
       - name: Install findutils, coreutils and macpack (needed by DMG script)
         shell: bash
         run: |
           set -euo pipefail
-          brew install findutils coreutils
+          brew install findutils coreutils python3
+          brew install bash || true
+          python3 -m venv .venv
           . .venv/bin/activate
           pip3 install macpack
-          
+
           # Patch macpack to create/set an asyncio loop on Python 3.14
           python3 <<'EOF'
           import sysconfig
@@ -164,13 +303,12 @@ jobs:
               if not p.exists():
                   print(f"Not found: {p}")
                   continue
-              
+
               print(f"Found patcher.py at: {p}")
               s = p.read_text()
-              
-              # Replace the problematic line with proper indentation
+
               old_pattern = r'(\s*)loop\s*=\s*asyncio\.get_event_loop\(\)'
-              
+
               def replacement(match):
                   indent = match.group(1)
                   return f'''{indent}try:
@@ -178,15 +316,14 @@ jobs:
           {indent}except RuntimeError:
           {indent}    loop = asyncio.new_event_loop()
           {indent}    asyncio.set_event_loop(loop)'''
-              
+
               s2 = re.sub(old_pattern, replacement, s, count=1)
-              
+
               if s2 != s:
                   p.write_text(s2)
                   print(f"✓ Patched: {p}")
                   patched = True
-                  
-                  # Verify the patch
+
                   if 'get_running_loop' in s2:
                       print("✓ Patch verification successful")
                   break
@@ -197,15 +334,9 @@ jobs:
               print("⚠ WARNING: Could not find or patch macpack/patcher.py")
               print("This may cause issues with Python 3.14")
           EOF
-          
-          # Sanity check: show which macpack will run
-          which macpack
-          python3 -c "import macpack; print('macpack imported successfully')"
-          
-          # Sanity check: show which macpack will run
-          which macpack
-          python3 -c "import macpack; print('macpack imported successfully')"
 
+          which macpack
+          python3 -c "import macpack; print('macpack imported successfully')"
 
       - name: 'Build DMG installer'
         uses: Wandalen/wretry.action@v3
@@ -222,7 +353,7 @@ jobs:
         with:
           name: 'DMG script error logs ${{matrix.variant}}'
           path: macos_installer/logs/
-      
+
       - name: Set APP_PREFIX (Coq vs Rocq)
         shell: bash
         run: |
@@ -241,8 +372,9 @@ jobs:
 
   Macos_smoke:
     name: Smoke test Macos
-    needs: Macos_platform
+    needs: macos_build_dmg
     runs-on: macos-latest
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'smoke' || github.event.inputs.stage == 'all' }}
     strategy:
       fail-fast: false
       matrix:
@@ -265,7 +397,7 @@ jobs:
         id: download-smoke
         with:
           name: 'Smoke Test Kit Macos ${{matrix.variant}}'
-      
+
       - name: Set APP_PREFIX (Coq vs Rocq)
         shell: bash
         run: |
@@ -288,14 +420,14 @@ jobs:
         shell: bash
         run: |
           cd /Applications/${APP_PREFIX}*.app/Contents/Resources/bin/
-          
+
           # Try default coqc first
           if ./coqc -v 2>/dev/null; then
               exit 0
           fi
-          
+
           echo "coqc -v failed, trying with library path detection for Rocq 9.0+"
-          
+
           # Try to find library path and use -coqlib
           for path in ../lib/coq ../lib/rocq ../lib/coq-stdlib; do
               if [ -d "$path" ] && ([ -f "$path/theories/Init/Prelude.vo" ] || [ -f "$path/Init/Prelude.vo" ]); then
@@ -303,7 +435,7 @@ jobs:
                   ./coqc -coqlib "$path" -v && exit 0
               fi
           done
-          
+
           # Last resort: boot mode
           echo "Trying boot mode..."
           ./coqc -boot -noinit -v
@@ -328,4 +460,3 @@ jobs:
           cd ${{steps.download-smoke.outputs.download-path}}
           chmod a+x ./run-smoke-test.sh
           ./run-smoke-test.sh
-
