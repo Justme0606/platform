@@ -39,6 +39,16 @@ mkdir smoke-test-kit
 
 source "$(dirname "$0")/get_names_from_switch.sh"
 
+###### Detect Rocq vs Coq branding #####
+
+SMOKE_APP_PREFIX="Coq-Platform"
+if opam show -f version rocq-core >/dev/null 2>&1; then
+  _COQ_MAJOR="$(opam show -f version rocq-core | cut -d. -f1)"
+  if [ "${_COQ_MAJOR:-0}" -ge 9 ]; then
+    SMOKE_APP_PREFIX="Rocq-Platform"
+  fi
+fi
+
 ###### Get filtered list of explicitly installed packages #####
 
 echo "Create package list for '${COQ_PLATFORM_PACKAGE_PICK_POSTFIX}'"
@@ -218,7 +228,7 @@ function patch_file() {
 
 smoke_script=smoke-test-kit/run-smoke-test.sh
 
-cat <<-'EOH' | sed -e "s/PRODUCTNAME/Coq-Platform${COQ_PLATFORM_PACKAGE_PICK_POSTFIX}/g" > $smoke_script
+cat <<-'EOH' | sed -e "s/PRODUCTNAME/${SMOKE_APP_PREFIX}${COQ_PLATFORM_PACKAGE_PICK_POSTFIX}/g" > $smoke_script
 	#!/usr/bin/env bash
 	# This script runs a small "smoke-test" for all Coq Platform components
 
@@ -321,36 +331,62 @@ cat <<-'EOH' | sed -e "s/PRODUCTNAME/Coq-Platform${COQ_PLATFORM_PACKAGE_PICK_POS
 
 smoke_batch=smoke-test-kit/run-smoke-test.bat
 
-cat <<-'EOH' | sed -e 's/$/\r/' -e "s/PRODUCTNAME/Coq-Platform${COQ_PLATFORM_PACKAGE_PICK_POSTFIX}/g" > $smoke_batch
+cat <<-'EOH' | sed -e 's/$/\r/' -e "s/PRODUCTNAME/${SMOKE_APP_PREFIX}${COQ_PLATFORM_PACKAGE_PICK_POSTFIX}/g" > $smoke_batch
 	@ECHO OFF
-	REM This script runs a small "smoke-test" for all Coq Platform components
-	
-	REM Check if coqc is in the path
-	WHERE coqc
-	IF ERRORLEVEL 1 (
-	    REM Check if coqc is in the default install location
-	    IF NOT EXIST "C:\PRODUCTNAME\bin\coqc.exe" (
-	        IF NOT EXIST "C:\bin\PRODUCTNAME\bin\coqc.exe" (
-	            ECHO "This script expects that coqc is in the PATH"
-	            ECHO "or in the default install location C:\PRODUCTNAME"
-	            ECHO "or in C:\bin\PRODUCTNAME"
-	            EXIT /B 1
-	        ) ELSE (
-	            ECHO "Using coqc from C:\bin\PRODUCTNAME\bin"
-	            SET "PATH=C:\bin\PRODUCTNAME\bin;C:\bin\PRODUCTNAME\lib\stublibs;%PATH%"
-	        )
-	    ) ELSE (
-	        ECHO "Using coqc from C:\PRODUCTNAME\bin"
-	        SET "PATH=C:\PRODUCTNAME\bin;C:\PRODUCTNAME\lib\stublibs;%PATH%"
-	    )
+	REM This script runs a small "smoke-test" for all Rocq/Coq Platform components
+
+	REM Detect compiler: try "rocq" first, then "coqc"
+	SET "COQC="
+	WHERE rocq >NUL 2>&1
+	IF NOT ERRORLEVEL 1 (
+	    SET "COQC=rocq compile"
+	    GOTO :compiler_found
 	)
-	
-	REM Print Coq version
-	echo "Coq Version"
-	coqc --version
+	WHERE coqc >NUL 2>&1
+	IF NOT ERRORLEVEL 1 (
+	    SET "COQC=coqc"
+	    GOTO :compiler_found
+	)
+
+	REM Neither in PATH; check default install locations
+	IF EXIST "C:\PRODUCTNAME\bin\rocq.exe" (
+	    ECHO "Using rocq from C:\PRODUCTNAME\bin"
+	    SET "PATH=C:\PRODUCTNAME\bin;C:\PRODUCTNAME\lib\stublibs;%PATH%"
+	    SET "COQC=rocq compile"
+	    GOTO :compiler_found
+	)
+	IF EXIST "C:\PRODUCTNAME\bin\coqc.exe" (
+	    ECHO "Using coqc from C:\PRODUCTNAME\bin"
+	    SET "PATH=C:\PRODUCTNAME\bin;C:\PRODUCTNAME\lib\stublibs;%PATH%"
+	    SET "COQC=coqc"
+	    GOTO :compiler_found
+	)
+	IF EXIST "C:\bin\PRODUCTNAME\bin\rocq.exe" (
+	    ECHO "Using rocq from C:\bin\PRODUCTNAME\bin"
+	    SET "PATH=C:\bin\PRODUCTNAME\bin;C:\bin\PRODUCTNAME\lib\stublibs;%PATH%"
+	    SET "COQC=rocq compile"
+	    GOTO :compiler_found
+	)
+	IF EXIST "C:\bin\PRODUCTNAME\bin\coqc.exe" (
+	    ECHO "Using coqc from C:\bin\PRODUCTNAME\bin"
+	    SET "PATH=C:\bin\PRODUCTNAME\bin;C:\bin\PRODUCTNAME\lib\stublibs;%PATH%"
+	    SET "COQC=coqc"
+	    GOTO :compiler_found
+	)
+
+	ECHO "This script expects that rocq or coqc is in the PATH"
+	ECHO "or in the default install location C:\PRODUCTNAME"
+	ECHO "or in C:\bin\PRODUCTNAME"
+	EXIT /B 1
+
+	:compiler_found
+
+	REM Print compiler version
+	echo "Compiler Version"
+	%COQC% --version
 
 	REM set COQLIB variable
-	FOR /F "tokens=* USEBACKQ" %%F IN (`coqc -where`) DO SET COQLIB=%%F
+	FOR /F "tokens=* USEBACKQ" %%F IN (`%COQC% -where`) DO SET COQLIB=%%F
 	
 	REM cd to smoke test folder
 	SET "HERE=%CD%"
@@ -360,17 +396,17 @@ cat <<-'EOH' | sed -e 's/$/\r/' -e "s/PRODUCTNAME/Coq-Platform${COQ_PLATFORM_PAC
 	
 	REM Run one test
 	REM $1: relative path of file to run
-	REM $2: coqc options
+	REM $2: compiler options
 	
 	:run_test
 	  ECHO "====================== Running test file %1 ======================"
 	  SET "HERESUB=%CD%"
 	  CD "%~dp1"
-	  ECHO "coqc %~2 %~nx1"
-	  coqc %~2 %~nx1
+	  ECHO "%COQC% %~2 %~nx1"
+	  %COQC% %~2 %~nx1
 	  IF ERRORLEVEL 1 (
 	    CD "%HERESUB%"
-	    ECHO "Compilation with coqc failed"
+	    ECHO "Compilation failed"
 	    EXIT /B 1
 	  )
 	  CD "%HERESUB%"
@@ -396,8 +432,9 @@ cat <<-'EOH' | sed -e 's/$/\r/' -e "s/PRODUCTNAME/Coq-Platform${COQ_PLATFORM_PAC
 
 	:run_all_tests
 	
-	REM Run coqc for all smoke test files
+	REM Run compiler for all smoke test files
 	EOH
+
 
 ##### Create a _CoqProject file with options given as command line arguments
 
