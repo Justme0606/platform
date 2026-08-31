@@ -193,6 +193,7 @@ TEST_FILES[coq-riscv~8.19~2024.10]='src/riscv/Examples/Fib.v'
 TEST_FILES[coq-riscv~8.20~2025.01]='src/riscv/Examples/Fib.v'
 TEST_FILES[coq-riscv~9.0~2025.08]='src/riscv/Examples/Fib.v'
 TEST_FILES[coq-riscv~9.1~2026.01]='src/riscv/Examples/Fib.v'
+TEST_FILES[coq-riscv~9.2~2026.08]='src/riscv/Examples/Fib.v'
 TEST_FILES[coq-rupicola]='src/Rupicola/Examples/Uppercase.v'
 TEST_FILES[coq-serapi]='../../test_files/coq-serapi/serapi_example'
 TEST_CMDS[coq-serapi]="sertop < serapi_example"
