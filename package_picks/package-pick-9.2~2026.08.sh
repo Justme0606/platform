@@ -90,14 +90,14 @@ then
   PACKAGES="${PACKAGES} rocq-mathcomp-multinomials.2.5.0"
 
   # Incompatible with MathComp 2.6.0.
-  #PACKAGES="${PACKAGES} coq-mathcomp-zify.1.6.0+2.3+8.18" # requires ssreflect < 2.6~
-  #PACKAGES="${PACKAGES} coq-coquelicot.3.4.4"              # requires ssreflect < 2.6~
+  PACKAGES="${PACKAGES} coq-mathcomp-zify.1.7.0+2.4+9.0" # updated
+  PACKAGES="${PACKAGES} coq-coquelicot.3.4.5"           # updated
 
   # Number theory
 
   # Local opam modification required: published package has a Coq upper bound
   # which does not include the final Rocq/Coq compatibility package 9.2.0.
-  #PACKAGES="${PACKAGES} coq-coqprime.1.6.0" # error compilation
+  PACKAGES="${PACKAGES} coq-coqprime.1.8.0" # error compilation
   PACKAGES="${PACKAGES} coq-coqprime-generator.1.1.2"
 
   # Numerical mathematics
@@ -105,12 +105,12 @@ then
 
   # Disabled transitively because Coquelicot does not currently support
   # MathComp ssreflect 2.6.0.
-  #PACKAGES="${PACKAGES} coq-interval.4.11.4"
+  #PACKAGES="${PACKAGES} coq-interval.4.11.4" # error compilation 
 
   # coq-gappa 1.7.1 explicitly requires coq < 9.2~.
   # Nix can build this source with Rocq 9.2, but the published OPAM metadata
   # does not allow coq.9.2.0. Requires an opam fix/~flex before enabling.
-  #PACKAGES="${PACKAGES} coq-gappa.1.7.1"
+  PACKAGES="${PACKAGES} coq-gappa.1.11.0"
 
   # Standalone Gappa is not affected by the Rocq version constraint.
   PACKAGES="${PACKAGES} gappa.1.6.0"
