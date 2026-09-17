@@ -28,7 +28,7 @@ set -o pipefail
 
 ###### The scripts supports a regexp package name pattern as $1 #####
 
-pattern="${1:-^coq-}"
+pattern="${1:-^(coq-|rocq-)}"
 
 ###### Clear and create smoke test folder #####
 
@@ -53,7 +53,7 @@ fi
 
 echo "Create package list for '${COQ_PLATFORM_PACKAGE_PICK_POSTFIX}'"
 
-packages="$(opam list --installed-roots --short --columns=name | { grep "${pattern}" || true; })"
+packages="$(opam list --installed-roots --short --columns=name | { grep -E "${pattern}" || true; })"
 
 ##### Associate package name with test/example file(s) #####
 
@@ -69,9 +69,11 @@ declare -A PATCH_CMDS
 declare -A TEST_CMDS
 
 TEST_FILES[coq-aac-tactics]='theories/Tutorial.v'
+TEST_FILES[rocq-aac-tactics]='theories/Tutorial.v'
 TEST_FILES[coq-bedrock2]='bedrock2/src/bedrock2Examples/ipow.v'
 TEST_FILES[coq-bedrock2-compiler]='compiler/src/compiler/Pipeline.v'
 TEST_FILES[coq-bignums]='tests/success/bigQ.v tests/success/NumberScopes.v'
+TEST_FILES[rocq-bignums]='tests/success/bigQ.v tests/success/NumberScopes.v'
 TEST_FILES[coq-compcert-32]='lib/Coqlib.v'
 COQ_OPTION[coq-compcert-32]='-Q $COQLIB/../coq-variant/compcert32/compcert compcert'
 TEST_FILES[coq-compcert]='lib/Coqlib.v'
@@ -86,10 +88,12 @@ TEST_FILES[coq-corn]=''
 TEST_FILES[coq-deriving]='tests/tree.v'
 TEST_FILES[coq-dpdgraph]='tests/Test.v'
 TEST_FILES[coq-elpi]='examples/tutorial_coq_elpi_command.v examples/tutorial_elpi_lang.v'
+TEST_FILES[rocq-elpi]='examples/tutorial_coq_elpi_command.v examples/tutorial_elpi_lang.v'
 TEST_FILES[coq-elpi~8.12]='theories/examples/example_reflexive_tactic.v'
 TEST_FILES[coq-elpi~8.13~2021.02]='examples/tutorial_coq_elpi.v examples/tutorial_elpi_lang.v'
 TEST_FILES[coq-elpi~dev]='examples/tutorial_coq_elpi.v examples/tutorial_elpi_lang.v'
 TEST_FILES[coq-equations]='examples/Fin.v examples/STLC.v'
+TEST_FILES[rocq-equations]='examples/Fin.v examples/STLC.v'
 TEST_FILES[coq-ext-lib]='examples/MonadReasoning.v examples/Printing.v'
 TEST_FILES[coq-extructures]='../../test_files/coq-extructures/tutorial.v'
 TEST_FILES[coq-extructures~8.18~mc2]='tests/tutorial.v'
@@ -114,6 +118,7 @@ else
 	TEST_FILES[coq-hammer]='../../test_files/coq-hammer/test_z3.v'
 fi
 TEST_FILES[coq-hierarchy-builder]='examples/demo2/classical.v examples/demo2/stage10.v examples/demo2/stage11.v'
+TEST_FILES[rocq-hierarchy-builder]='examples/demo2/classical.v examples/demo2/stage10.v examples/demo2/stage11.v'
 TEST_FILES[coq-hierarchy-builder~8.12]='demo2/classical.v demo2/stage10.v demo2/stage11.v'
 PATCH_CMDS[coq-hierarchy-builder~8.12]='/^From HB.demo2 / {sub("From HB.demo2 ", "", $0); print $0; next}'
 TEST_FILES[coq-hierarchy-builder~8.13~2021.02]='demo2/classical.v demo2/stage10.v demo2/stage11.v'
@@ -128,36 +133,51 @@ TEST_FILES[coq-interval-flocq3]='testsuite/example-20071016.v testsuite/example-
 PATCH_CMDS[coq-interval-flocq3]='/Interval/ {sub("Interval", "IntervalFlocq3", $0); print $0; next}'
 TEST_FILES[coq-iris-heap-lang]='tests/heapprop.v'
 TEST_FILES[coq-iris]='tests/heapprop.v'
+TEST_FILES[rocq-iris-heap-lang]='tests/heapprop.v'
+TEST_FILES[rocq-iris]='tests/heapprop.v'
 TEST_FILES[coq-itauto]='test-suite/no_test_lia.v' # test-suite/arith.v  has issues with Int63.v
 TEST_FILES[coq-libhyps]='Demo/demo.v'
+TEST_FILES[rocq-libhyps]='tests/demo.v'
+PATCH_CMDS[rocq-libhyps~9.2~2026.08]='/^Require Import LibHyps.LibHyps\.$/ {print "From LibHyps.LibHyps Require Import LibHyps."; next}'
+COQ_OPTION[rocq-libhyps~9.2~2026.08]='-async-proofs-cache force -w -undo-batch-mode'
 TEST_FILES[coq-math-classes]=''
 TEST_FILES[coq-mathcomp-algebra-tactics]='examples/field_examples.v examples/ring_examples.v'
 PATCH_CMDS[coq-mathcomp-algebra-tactics]='/From mathcomp/ {sub("[(][*]", "", $0); sub("[*][)]", "", $0); print $0; next}'
 TEST_FILES[coq-mathcomp-algebra]='mathcomp/algebra/finalg.v'
+TEST_FILES[rocq-mathcomp-algebra]='mathcomp/algebra/finalg.v'
 # Overrides pour Rocq 9.0.1 pick (chemins sans préfixe "mathcomp/")
 TEST_FILES[coq-mathcomp-algebra~9.0~2025.08]='mathcomp/algebra/finalg.v'
 TEST_FILES[coq-mathcomp-algebra~9.1~2026.01]='mathcomp/algebra/finalg.v'
 TEST_FILES[coq-mathcomp-analysis]=''
 TEST_FILES[coq-mathcomp-bigenough]='bigenough.v'
+TEST_FILES[rocq-mathcomp-bigenough]='bigenough.v'
 TEST_FILES[coq-mathcomp-character]='mathcomp/character/all_character.v'
+TEST_FILES[rocq-mathcomp-character]='mathcomp/character/all_character.v'
 TEST_FILES[coq-mathcomp-character~9.0~2025.08]='character/all_character.v'
 TEST_FILES[coq-mathcomp-character~9.1~2026.01]='character/all_character.v'
 TEST_FILES[coq-mathcomp-field]='mathcomp/field/finfield.v'
+TEST_FILES[rocq-mathcomp-field]='mathcomp/field/finfield.v'
 TEST_FILES[coq-mathcomp-field~9.0~2025.08]='field/finfield.v'
 TEST_FILES[coq-mathcomp-field~9.1~2026.01]='field/finfield.v'
 TEST_FILES[coq-mathcomp-fingroup]='mathcomp/fingroup/quotient.v'
+TEST_FILES[rocq-mathcomp-fingroup]='mathcomp/fingroup/quotient.v'
 TEST_FILES[coq-mathcomp-fingroup~9.0~2025.08]='fingroup/quotient.v'
 TEST_FILES[coq-mathcomp-fingroup~9.1~2026.01]='fingroup/quotient.v'
 TEST_FILES[coq-mathcomp-finmap]='finmap.v'
+TEST_FILES[rocq-mathcomp-finmap]='finmap.v'
 PATCH_CMDS[coq-mathcomp-finmap]='/^From mathcomp Require/ {sub("mathcomp", "mathcomp.ssreflect", $0); print $0; next}'
 TEST_FILES[coq-mathcomp-multinomials]=''
+TEST_FILES[rocq-mathcomp-multinomials]=''
 TEST_FILES[coq-mathcomp-real-closed]='theories/complex.v'
+TEST_FILES[rocq-mathcomp-real-closed]='theories/complex.v'
 TEST_FILES[coq-mathcomp-solvable]='mathcomp/solvable/abelian.v'
 TEST_FILES[coq-mathcomp-solvable~9.0~2025.08]='solvable/abelian.v'
 TEST_FILES[coq-mathcomp-solvable~9.1~2026.01]='solvable/abelian.v'
+TEST_FILES[rocq-mathcomp-solvable]='solvable/abelian.v'
 TEST_FILES[coq-mathcomp-ssreflect]='mathcomp/ssreflect/ssrbool.v'
 TEST_FILES[coq-mathcomp-ssreflect~9.0~2025.08]='ssreflect/ssrbool.v'
 TEST_FILES[coq-mathcomp-ssreflect~9.1~2026.01]='ssreflect/ssrbool.v'
+TEST_FILES[rocq-mathcomp-ssreflect]='ssreflect/ssrbool.v'
 TEST_FILES[coq-mathcomp-word]='../../test_files/coq-mathcomp-word/test_upto_8_16.v'
 TEST_FILES[coq-mathcomp-word~8.16~2023.08]='../../test_files/coq-mathcomp-word/test.v'
 TEST_FILES[coq-mathcomp-word~8.17~2023.08]='../../test_files/coq-mathcomp-word/test.v'
@@ -170,6 +190,7 @@ TEST_FILES[coq-mathcomp-word~9.1~2026.01]='../../test_files/coq-mathcomp-word/te
 TEST_FILES[coq-mathcomp-zify]='examples/divmod.v examples/boolean.v'
 PATCH_CMDS[coq-mathcomp-zify]='/^From mathcomp Require Import ssreflect/ {sub("mathcomp", "mathcomp.ssreflect", $0); print $0; next}'
 PATCH_CMDS[coq-mathcomp-zify~9.1~2026.01]='/^From mathcomp Require Import ssreflect/ {print "From mathcomp.ssreflect Require Import all_ssreflect."; next}'
+TEST_FILES[rocq-mathcomp-zify~9.2~2026.08]='examples/divmod.v examples/boolean.v'
 TEST_FILES[coq-menhirlib]='coq-menhirlib/src/Alphabet.v'
 TEST_FILES[coq-metacoq]='examples/metacoq_tour_prelude.v examples/metacoq_tour.v'
 PATCH_CMDS[coq-metacoq]='/From MetaCoq.Examples/ {sub("From MetaCoq.Examples", "", $0); print $0; next}'
@@ -213,6 +234,10 @@ TEST_FILES[coq-vst]='progs64/reverse.v progs64/verif_reverse2.v'
 PATCH_CMDS[coq-vst]='/^Require Import VST.progs64.reverse.$/ {print "Require Import reverse. "; next}'
 TEST_FILES[coq-vst~8.12]='progs/reverse.v progs/verif_reverse2.v'
 PATCH_CMDS[coq-vst~8.12]='/^Require Import VST.progs.reverse.$/ {print "Require Import reverse. "; next}'
+
+TEST_FILES[rocq-metarocq]=''
+TEST_FILES[rocq-stdlib]=''
+TEST_FILES[rocq-stdpp]=''
 
 ##### Hacks for files #####
 
