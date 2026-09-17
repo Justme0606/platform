@@ -90,14 +90,14 @@ then
   PACKAGES="${PACKAGES} rocq-mathcomp-multinomials.2.5.0"
 
   # Incompatible with MathComp 2.6.0.
-  PACKAGES="${PACKAGES} coq-mathcomp-zify.1.7.0+2.4+9.0" # updated
+  PACKAGES="${PACKAGES} rocq-mathcomp-zify.1.7.0+2.4+9.0" # updated
   PACKAGES="${PACKAGES} coq-coquelicot.3.4.5"           # updated
 
   # Number theory
 
   # Local opam modification required: published package has a Coq upper bound
   # which does not include the final Rocq/Coq compatibility package 9.2.0.
-  PACKAGES="${PACKAGES} coq-coqprime.1.8.0" # error compilation
+  PACKAGES="${PACKAGES} rocq-coqprime.1.8.0"
   PACKAGES="${PACKAGES} coq-coqprime-generator.1.1.2"
 
   # Numerical mathematics
